@@ -1,6 +1,7 @@
 // global variables
 var ui, ui_opts;
 var ui_initialised = false;
+var db;
 
 window.state = {
   initialised: false,
@@ -23,6 +24,11 @@ Shiny.addCustomMessageHandler('fireblaze-initialize', function(msg) {
     window.state.initialised = true;
     // init
     firebase.initializeApp(msg.conf);
+	db = firebase.firestore();
+	
+	var jQueryScript = document.createElement('script');  
+	jQueryScript.setAttribute('src','https://www.gstatic.com/firebasejs/8.7.1/firebase-functions.js');
+	document.head.appendChild(jQueryScript);
 
     // set persistence
     var persistence = persistenceOpts(msg.persistence);
@@ -145,3 +151,28 @@ Shiny.addCustomMessageHandler('fireblaze-delete-user', function(msg) {
       Shiny.setInputValue('fireblaze_' + 'deleted_user', {success: false, response: error})
     });
 });
+
+// Get a Stripe Checkout Session, pass back to Shiny
+Shiny.addCustomMessageHandler('start-subscription', async function(price_id) {
+	console.log('Initiate Subscription');
+	
+	const docRef = await db
+	  .collection('customers')
+	  .doc(firebase.auth().currentUser.uid)
+	  .collection('checkout_sessions')
+	  .add({
+		price: price_id,
+		success_url: window.location.origin,
+		cancel_url: window.location.origin,
+	  });
+	  
+	
+	// Wait for the CheckoutSession to get attached by the extension
+	// Could include redirect here
+	docRef.onSnapshot((snap) => {
+	  Shiny.setInputValue('userProfile_ui_1-stripe_url_response', snap.data());
+	});
+	
+	
+});
+
